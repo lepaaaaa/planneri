@@ -1,4 +1,4 @@
-/* Planneri – ensimmäinen käyttöliittymäversio */
+/* Planneri v2 */
 
 :root {
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -18,17 +18,13 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
 button {
   cursor: pointer;
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
 }
 
 .app-header {
@@ -47,20 +43,26 @@ button:disabled {
   font-size: 0.85rem;
 }
 
+h1,
+h2,
+h3 {
+  margin-top: 0;
+}
+
 h1 {
-  margin: 0;
+  margin-bottom: 0;
   font-size: clamp(1.5rem, 4vw, 2rem);
 }
 
 .primary-button,
 .secondary-button,
 .icon-button {
-  border: 0;
   border-radius: 0.75rem;
 }
 
 .primary-button {
   padding: 0.75rem 1rem;
+  border: 0;
   color: #ffffff;
   background: #5b5bf7;
   font-weight: 700;
@@ -68,6 +70,33 @@ h1 {
 
 .primary-button:hover {
   background: #4b4be0;
+}
+
+.secondary-button {
+  padding: 0.6rem 0.85rem;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #1f2937;
+}
+
+.secondary-button:hover {
+  background: #f9fafb;
+}
+
+.compact-button {
+  white-space: nowrap;
+}
+
+.icon-button {
+  padding: 0.35rem 0.55rem;
+  border: 0;
+  background: transparent;
+  color: #6b7280;
+}
+
+.icon-button:hover {
+  background: #ffffff;
+  color: #111827;
 }
 
 .view-tabs {
@@ -93,6 +122,12 @@ main {
   padding: 1rem clamp(1rem, 3vw, 2rem) 2rem;
 }
 
+.view-panel[hidden] {
+  display: none;
+}
+
+/* Taulu */
+
 .board {
   display: grid;
   grid-auto-flow: column;
@@ -105,46 +140,70 @@ main {
 }
 
 .column {
+  --column-color: #5b5bf7;
   min-height: 180px;
   padding: 0.9rem;
   border: 1px solid #e5e7eb;
+  border-top: 5px solid var(--column-color);
   border-radius: 1rem;
   background: #eceef4;
   scroll-snap-align: start;
 }
 
 .column.drag-over {
-  outline: 2px solid #5b5bf7;
+  outline: 2px solid var(--column-color);
   outline-offset: 2px;
 }
 
 .column-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.5rem;
   margin-bottom: 0.8rem;
 }
 
+.column-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
 .column-title {
   margin: 0;
   font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.column-color {
+  width: 1.65rem;
+  height: 1.65rem;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.column-color::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.column-color::-webkit-color-swatch {
+  border: 0;
+  border-radius: 50%;
+}
+
+.column-color::-moz-color-swatch {
+  border: 0;
+  border-radius: 50%;
 }
 
 .column-actions {
   display: flex;
-  gap: 0.25rem;
-}
-
-.icon-button {
-  padding: 0.35rem 0.55rem;
-  background: transparent;
-  color: #6b7280;
-}
-
-.icon-button:hover {
-  background: #ffffff;
-  color: #111827;
+  gap: 0.15rem;
 }
 
 .task-list {
@@ -156,6 +215,7 @@ main {
 .task-card {
   padding: 0.85rem;
   border: 1px solid #e5e7eb;
+  border-left: 4px solid var(--column-color);
   border-radius: 0.85rem;
   background: #ffffff;
 }
@@ -165,8 +225,26 @@ main {
 }
 
 .task-title {
-  margin: 0 0 0.7rem;
+  margin: 0 0 0.35rem;
   font-weight: 700;
+}
+
+.task-description-preview {
+  margin: 0 0 0.6rem;
+  color: #6b7280;
+  font-size: 0.88rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.task-date {
+  display: inline-block;
+  margin-bottom: 0.7rem;
+  padding: 0.25rem 0.45rem;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 0.82rem;
 }
 
 .task-actions {
@@ -187,15 +265,8 @@ main {
   gap: 0.4rem;
 }
 
-.secondary-button {
+.task-buttons .secondary-button {
   flex: 1;
-  padding: 0.5rem 0.65rem;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-}
-
-.secondary-button:hover {
-  background: #f9fafb;
 }
 
 .add-task-button {
@@ -220,6 +291,316 @@ main {
   font-size: 0.9rem;
 }
 
+/* Kalenteri */
+
+.calendar-toolbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.calendar-title {
+  margin: 0;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.calendar-weekdays {
+  border: 1px solid #e5e7eb;
+  border-bottom: 0;
+  border-radius: 0.85rem 0.85rem 0 0;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.calendar-weekdays span {
+  padding: 0.55rem 0.35rem;
+  color: #6b7280;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.calendar-grid {
+  border-top: 1px solid #e5e7eb;
+  border-left: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.calendar-day {
+  min-height: 115px;
+  padding: 0.45rem;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+  min-width: 0;
+}
+
+.calendar-day.outside-month {
+  background: #f9fafb;
+  color: #9ca3af;
+}
+
+.calendar-day.today {
+  background: #f7f7ff;
+}
+
+.calendar-day-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.8rem;
+  min-height: 1.8rem;
+  margin-bottom: 0.25rem;
+  border-radius: 50%;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.calendar-day.today .calendar-day-number {
+  color: #ffffff;
+  background: #5b5bf7;
+}
+
+.calendar-task-list {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.calendar-task {
+  width: 100%;
+  padding: 0.3rem 0.4rem;
+  border: 0;
+  border-left: 4px solid var(--task-color);
+  border-radius: 0.4rem;
+  background: #f3f4f6;
+  color: #1f2937;
+  font-size: 0.78rem;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unscheduled-section {
+  margin-top: 1.25rem;
+}
+
+.unscheduled-section h3 {
+  margin-bottom: 0.6rem;
+}
+
+.unscheduled-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.unscheduled-task {
+  --task-color: #5b5bf7;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #e5e7eb;
+  border-left: 4px solid var(--task-color);
+  border-radius: 0.65rem;
+  background: #ffffff;
+}
+
+/* Taulukko */
+
+.table-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.table-controls label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: min(100%, 260px);
+  font-weight: 600;
+}
+
+.table-controls select {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.7rem;
+  background: #ffffff;
+}
+
+.task-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.85rem;
+  background: #ffffff;
+}
+
+.task-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.task-table th,
+.task-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  vertical-align: top;
+}
+
+.task-table th {
+  background: #f9fafb;
+  color: #4b5563;
+  font-size: 0.85rem;
+}
+
+.task-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.table-column-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+}
+
+.color-dot {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--dot-color);
+}
+
+.table-group {
+  margin-bottom: 1.2rem;
+}
+
+.table-group-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.55rem;
+}
+
+.table-group-heading h3 {
+  margin: 0;
+}
+
+.table-edit-button {
+  white-space: nowrap;
+}
+
+/* Tehtävädialogi */
+
+.task-dialog {
+  width: min(92vw, 520px);
+  padding: 0;
+  border: 0;
+  border-radius: 1rem;
+  background: #ffffff;
+}
+
+.task-dialog::backdrop {
+  background: rgba(17, 24, 39, 0.55);
+}
+
+.dialog-content {
+  padding: 1.1rem;
+}
+
+.dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dialog-heading h2 {
+  margin-bottom: 0;
+}
+
+.form-field {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 1rem;
+  font-weight: 600;
+}
+
+.form-field input,
+.form-field textarea {
+  width: 100%;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.7rem;
+  background: #ffffff;
+}
+
+.form-field textarea {
+  resize: vertical;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1.2rem;
+}
+
+/* Yleinen */
+
+.empty-view {
+  padding: 1rem;
+  border: 1px dashed #d1d5db;
+  border-radius: 0.8rem;
+  color: #6b7280;
+  background: #ffffff;
+}
+
+@media (max-width: 700px) {
+  .calendar-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .calendar-title {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .calendar-toolbar #calendar-prev {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .calendar-toolbar #calendar-next {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .calendar-day {
+    min-height: 90px;
+    padding: 0.3rem;
+  }
+
+  .calendar-task {
+    font-size: 0.72rem;
+    padding: 0.25rem 0.3rem;
+  }
+
+  .calendar-weekdays span {
+    font-size: 0.72rem;
+  }
+}
+
 @media (max-width: 600px) {
   .app-header {
     align-items: flex-start;
@@ -230,7 +611,43 @@ main {
     width: 100%;
   }
 
+  .view-tabs {
+    overflow-x: auto;
+  }
+
   .board {
     grid-auto-columns: minmax(82vw, 88vw);
+  }
+
+  .column-actions {
+    flex-direction: column;
+  }
+
+  .task-buttons {
+    flex-direction: column;
+  }
+
+  .dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .dialog-actions button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 450px) {
+  .calendar-day {
+    min-height: 75px;
+  }
+
+  .calendar-task {
+    display: block;
+    height: 0.55rem;
+    padding: 0;
+    border-left: 0;
+    border-radius: 999px;
+    background: var(--task-color);
+    color: transparent;
   }
 }
