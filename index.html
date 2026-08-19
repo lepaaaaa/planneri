@@ -1,1 +1,41 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#5b5bf7">
+  <title>Planneri</title>
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Yhteinen tehtävätaulu</p>
+      <h1>Planneri</h1>
+    </div>
+
+    <button id="add-column-button" class="primary-button" type="button">
+      + Lisää sarake
+    </button>
+  </header>
+
+  <nav class="view-tabs" aria-label="Näkymät">
+    <button class="view-tab active" type="button">Taulu</button>
+    <button class="view-tab" type="button" disabled>Kalenteri</button>
+    <button class="view-tab" type="button" disabled>Taulukko</button>
+  </nav>
+
+  <main>
+    <section
+      id="board"
+      class="board"
+      aria-label="Tehtävätaulu"
+      aria-live="polite">
+    </section>
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
 
