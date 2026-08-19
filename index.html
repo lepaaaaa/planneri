@@ -21,21 +21,110 @@
   </header>
 
   <nav class="view-tabs" aria-label="Näkymät">
-    <button class="view-tab active" type="button">Taulu</button>
-    <button class="view-tab" type="button" disabled>Kalenteri</button>
-    <button class="view-tab" type="button" disabled>Taulukko</button>
+    <button class="view-tab active" type="button" data-view="board">Taulu</button>
+    <button class="view-tab" type="button" data-view="calendar">Kalenteri</button>
+    <button class="view-tab" type="button" data-view="table">Taulukko</button>
   </nav>
 
   <main>
-    <section
-      id="board"
-      class="board"
-      aria-label="Tehtävätaulu"
-      aria-live="polite">
+    <section id="board-view" class="view-panel">
+      <section
+        id="board"
+        class="board"
+        aria-label="Tehtävätaulu"
+        aria-live="polite">
+      </section>
+    </section>
+
+    <section id="calendar-view" class="view-panel" hidden>
+      <div class="calendar-toolbar">
+        <button id="calendar-prev" class="secondary-button compact-button" type="button">
+          ← Edellinen
+        </button>
+
+        <h2 id="calendar-title" class="calendar-title"></h2>
+
+        <button id="calendar-next" class="secondary-button compact-button" type="button">
+          Seuraava →
+        </button>
+      </div>
+
+      <div class="calendar-weekdays" aria-hidden="true">
+        <span>Ma</span>
+        <span>Ti</span>
+        <span>Ke</span>
+        <span>To</span>
+        <span>Pe</span>
+        <span>La</span>
+        <span>Su</span>
+      </div>
+
+      <div id="calendar-grid" class="calendar-grid"></div>
+
+      <section class="unscheduled-section">
+        <h3>Ilman määräpäivää</h3>
+        <div id="unscheduled-tasks" class="unscheduled-list"></div>
+      </section>
+    </section>
+
+    <section id="table-view" class="view-panel" hidden>
+      <div class="table-controls">
+        <label>
+          Aikajärjestys
+          <select id="table-sort">
+            <option value="asc">Nouseva – aikaisin ensin</option>
+            <option value="desc">Laskeva – myöhäisin ensin</option>
+          </select>
+        </label>
+
+        <label>
+          Ryhmittely
+          <select id="table-group">
+            <option value="column">Sarakkeen mukaan</option>
+            <option value="none">Ei ryhmittelyä</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="task-table-container"></div>
     </section>
   </main>
+
+  <dialog id="task-dialog" class="task-dialog">
+    <div class="dialog-content">
+      <div class="dialog-heading">
+        <h2 id="task-dialog-title">Lisää tehtävä</h2>
+        <button id="task-dialog-close" class="icon-button" type="button" aria-label="Sulje">
+          ✕
+        </button>
+      </div>
+
+      <label class="form-field">
+        Tehtävän nimi
+        <input id="task-title-input" type="text" maxlength="120" autocomplete="off">
+      </label>
+
+      <label class="form-field">
+        Määräpäivä
+        <input id="task-date-input" type="date">
+      </label>
+
+      <label class="form-field">
+        Kuvaus
+        <textarea id="task-description-input" rows="4" maxlength="1000"></textarea>
+      </label>
+
+      <div class="dialog-actions">
+        <button id="task-dialog-cancel" class="secondary-button" type="button">
+          Peruuta
+        </button>
+        <button id="task-dialog-save" class="primary-button" type="button">
+          Tallenna
+        </button>
+      </div>
+    </div>
+  </dialog>
 
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
-
