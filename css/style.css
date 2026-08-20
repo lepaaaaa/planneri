@@ -407,6 +407,16 @@ main {
   border-bottom: 1px solid #e5e7eb;
   background: #ffffff;
   min-width: 0;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.calendar-day:hover {
+  background: #f7f7ff;
+}
+
+.calendar-day.outside-month:hover {
+  background: #f3f4f6;
 }
 
 .calendar-day.outside-month {
@@ -602,6 +612,7 @@ main {
 }
 
 .form-field input,
+.form-field select,
 .form-field textarea {
   width: 100%;
   padding: 0.7rem 0.75rem;
