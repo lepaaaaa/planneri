@@ -183,17 +183,30 @@ async function signIn() {
   setAuthBusy(true);
   setAuthMessage("Kirjaudutaan sisään...");
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
 
   setAuthBusy(false);
 
   if (error) {
-    console.error(error);
+    console.error("Kirjautumisvirhe:", error);
     setAuthMessage(translateAuthError(error.message), "error");
     return;
   }
 
   authPassword.value = "";
+
+  if (data.user && data.session) {
+    showSignedIn(data.user);
+    return;
+  }
+
+  setAuthMessage(
+    "Kirjautuminen onnistui, mutta käyttäjätietoa ei saatu.",
+    "error"
+  );
 }
 
 async function signUp() {
