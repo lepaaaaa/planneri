@@ -86,6 +86,7 @@ const taskDialogCancel = document.querySelector("#task-dialog-cancel");
 const taskDialogSave = document.querySelector("#task-dialog-save");
 const taskTitleInput = document.querySelector("#task-title-input");
 const taskDateInput = document.querySelector("#task-date-input");
+const taskColumnInput = document.querySelector("#task-column-input");
 const taskDescriptionInput = document.querySelector("#task-description-input");
 
 signInButton.addEventListener("click", signIn);
@@ -644,15 +645,30 @@ function deleteColumn(columnId) {
   renderAll();
 }
 
-function openTaskDialogForAdd(columnId) {
+function fillTaskColumnOptions(selectedColumnId = "") {
+  taskColumnInput.innerHTML = "";
+
+  state.columns.forEach((column) => {
+    const option = document.createElement("option");
+    option.value = column.id;
+    option.textContent = column.title;
+    option.selected = column.id === selectedColumnId;
+
+    taskColumnInput.appendChild(option);
+  });
+}
+
+function openTaskDialogForAdd(columnId, dueDate = "") {
   dialogMode = "add";
   dialogColumnId = columnId;
   dialogTaskId = null;
 
   taskDialogTitle.textContent = "Lisää tehtävä";
   taskTitleInput.value = "";
-  taskDateInput.value = "";
+  taskDateInput.value = dueDate;
   taskDescriptionInput.value = "";
+
+  fillTaskColumnOptions(columnId);
 
   taskDialog.showModal();
   taskTitleInput.focus();
@@ -673,6 +689,8 @@ function openTaskDialogForEdit(taskId, columnId) {
   taskTitleInput.value = task.title;
   taskDateInput.value = task.dueDate || "";
   taskDescriptionInput.value = task.description || "";
+  
+  fillTaskColumnOptions(columnId);
 
   taskDialog.showModal();
   taskTitleInput.focus();
@@ -686,6 +704,7 @@ function closeTaskDialog() {
 
 function saveTaskDialog() {
   const title = taskTitleInput.value.trim();
+  const selectedColumnId = taskColumnInput.value;
 
   if (!title) {
     window.alert("Anna tehtävälle nimi.");
@@ -700,7 +719,7 @@ function saveTaskDialog() {
   };
 
   if (dialogMode === "add") {
-    const column = getColumn(dialogColumnId);
+    const column = getColumn(selectedColumnId);
 
     if (!column) {
       closeTaskDialog();
@@ -712,9 +731,11 @@ function saveTaskDialog() {
       ...taskData
     });
   } else {
+    const sourceColumn = getColumn(dialogColumnId);
+    const targetColumn = getColumn(selectedColumnId);
     const task = getTask(dialogTaskId, dialogColumnId);
 
-    if (!task) {
+    if (!sourceColumn || !targetColumn || !task) {
       closeTaskDialog();
       return;
     }
@@ -722,6 +743,14 @@ function saveTaskDialog() {
     task.title = taskData.title;
     task.dueDate = taskData.dueDate;
     task.description = taskData.description;
+
+    if (selectedColumnId !== dialogColumnId) {
+      sourceColumn.tasks = sourceColumn.tasks.filter(
+        (item) => item.id !== dialogTaskId
+      );
+
+      targetColumn.tasks.push(task);
+    }
   }
 
   closeTaskDialog();
@@ -826,6 +855,18 @@ function renderCalendar() {
     const day = document.createElement("section");
     day.className = "calendar-day";
 
+    day.addEventListener("click", () => {
+      if (state.columns.length === 0) {
+        window.alert("Luo ensin vähintään yksi sarake.");
+        return;
+      }
+
+      openTaskDialogForAdd(
+        state.columns[0].id,
+        isoDate
+      );
+    });
+
     if (date.getMonth() !== month) {
       day.classList.add("outside-month");
     }
@@ -850,9 +891,14 @@ function renderCalendar() {
       taskButton.style.setProperty("--task-color", entry.column.color);
       taskButton.textContent = entry.task.title;
       taskButton.title = `${entry.task.title} – ${entry.column.title}`;
-      taskButton.addEventListener("click", () => {
-        openTaskDialogForEdit(entry.task.id, entry.column.id);
-      });
+      taskButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+
+        openTaskDialogForEdit(
+          entry.task.id,
+          entry.column.id
+        );
+    });
 
       taskList.appendChild(taskButton);
     });
