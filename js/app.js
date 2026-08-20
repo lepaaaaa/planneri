@@ -225,8 +225,9 @@ async function signUp() {
 
   authPassword.value = "";
 
-  if (data.session) {
-    setAuthMessage("Käyttäjä luotu. Olet nyt kirjautuneena.", "success");
+  if (data.session && data.user) {
+    showSignedIn(data.user);
+    return;
   } else {
     setAuthMessage("Käyttäjä luotu. Kirjaudu sisään.", "success");
   }
