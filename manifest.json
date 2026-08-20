@@ -1,0 +1,22 @@
+{
+  "name": "Planneri",
+  "short_name": "Planneri",
+  "description": "Yhteinen Kanban-tyylinen Todo-sovellus.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f6fa",
+  "theme_color": "#5b5bf7",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
