@@ -1,3 +1,5 @@
+import { supabase } from "./supabase.js";
+
 const STORAGE_KEY = "planneri-demo-v1";
 
 const COLUMN_COLORS = [
@@ -49,6 +51,16 @@ let dialogMode = "add";
 let dialogColumnId = null;
 let dialogTaskId = null;
 
+const authView = document.querySelector("#auth-view");
+const appView = document.querySelector("#app-view");
+const authEmail = document.querySelector("#auth-email");
+const authPassword = document.querySelector("#auth-password");
+const authMessage = document.querySelector("#auth-message");
+const signInButton = document.querySelector("#sign-in-button");
+const signUpButton = document.querySelector("#sign-up-button");
+const signOutButton = document.querySelector("#sign-out-button");
+const currentUser = document.querySelector("#current-user");
+
 const board = document.querySelector("#board");
 const addColumnButton = document.querySelector("#add-column-button");
 const viewTabs = [...document.querySelectorAll(".view-tab")];
@@ -75,6 +87,16 @@ const taskDialogSave = document.querySelector("#task-dialog-save");
 const taskTitleInput = document.querySelector("#task-title-input");
 const taskDateInput = document.querySelector("#task-date-input");
 const taskDescriptionInput = document.querySelector("#task-description-input");
+
+signInButton.addEventListener("click", signIn);
+signUpButton.addEventListener("click", signUp);
+signOutButton.addEventListener("click", signOut);
+
+authPassword.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    signIn();
+  }
+});
 
 addColumnButton.addEventListener("click", addColumn);
 
@@ -121,6 +143,152 @@ taskDialog.addEventListener("click", (event) => {
     closeTaskDialog();
   }
 });
+
+async function initializeAuth() {
+  setAuthMessage("Tarkistetaan kirjautumista...");
+
+  const { data, error } = await supabase.auth.getSession();
+
+  if (error) {
+    console.error(error);
+    setAuthMessage("Kirjautumistilaa ei voitu tarkistaa.", "error");
+    showSignedOut();
+    return;
+  }
+
+  if (data.session) {
+    showSignedIn(data.session.user);
+  } else {
+    showSignedOut();
+  }
+
+  supabase.auth.onAuthStateChange((_event, session) => {
+    if (session?.user) {
+      showSignedIn(session.user);
+    } else {
+      showSignedOut();
+    }
+  });
+}
+
+async function signIn() {
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
+
+  if (!email || !password) {
+    setAuthMessage("Kirjoita sähköposti ja salasana.", "error");
+    return;
+  }
+
+  setAuthBusy(true);
+  setAuthMessage("Kirjaudutaan sisään...");
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  setAuthBusy(false);
+
+  if (error) {
+    console.error(error);
+    setAuthMessage(translateAuthError(error.message), "error");
+    return;
+  }
+
+  authPassword.value = "";
+}
+
+async function signUp() {
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
+
+  if (!email || !password) {
+    setAuthMessage("Kirjoita sähköposti ja salasana.", "error");
+    return;
+  }
+
+  if (password.length < 6) {
+    setAuthMessage("Salasanassa pitää olla vähintään 6 merkkiä.", "error");
+    return;
+  }
+
+  setAuthBusy(true);
+  setAuthMessage("Luodaan käyttäjää...");
+
+  const { data, error } = await supabase.auth.signUp({ email, password });
+
+  setAuthBusy(false);
+
+  if (error) {
+    console.error(error);
+    setAuthMessage(translateAuthError(error.message), "error");
+    return;
+  }
+
+  authPassword.value = "";
+
+  if (data.session) {
+    setAuthMessage("Käyttäjä luotu. Olet nyt kirjautuneena.", "success");
+  } else {
+    setAuthMessage("Käyttäjä luotu. Kirjaudu sisään.", "success");
+  }
+}
+
+async function signOut() {
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    console.error(error);
+    window.alert("Uloskirjautuminen epäonnistui.");
+  }
+}
+
+function showSignedIn(user) {
+  authView.hidden = true;
+  appView.hidden = false;
+  currentUser.textContent = user.email || "Kirjautunut käyttäjä";
+  setAuthMessage("");
+  renderAll();
+}
+
+function showSignedOut() {
+  appView.hidden = true;
+  authView.hidden = false;
+  currentUser.textContent = "";
+  setAuthMessage("");
+  authEmail.focus();
+}
+
+function setAuthBusy(isBusy) {
+  signInButton.disabled = isBusy;
+  signUpButton.disabled = isBusy;
+}
+
+function setAuthMessage(message, type = "") {
+  authMessage.textContent = message;
+  authMessage.className = "auth-message";
+  if (type) authMessage.classList.add(type);
+}
+
+function translateAuthError(message) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("invalid login credentials")) {
+    return "Sähköposti tai salasana on väärin.";
+  }
+
+  if (normalized.includes("user already registered")) {
+    return "Tällä sähköpostiosoitteella on jo käyttäjä.";
+  }
+
+  if (normalized.includes("password")) {
+    return "Salasana ei täytä vaatimuksia.";
+  }
+
+  if (normalized.includes("email")) {
+    return "Tarkista sähköpostiosoite.";
+  }
+
+  return `Kirjautumisessa tapahtui virhe: ${message}`;
+}
 
 function loadState() {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -907,5 +1075,4 @@ function formatDate(isoDate) {
   }).format(new Date(year, month - 1, day));
 }
 
-renderBoard();
-saveState();
+initializeAuth();
