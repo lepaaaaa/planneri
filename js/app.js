@@ -1,6 +1,8 @@
 import { supabase } from "./supabase.js";
 
-const STORAGE_KEY = "planneri-demo-v1";
+//Local storage
+//const STORAGE_KEY = "planneri-demo-v1";
+const PREFERENCES_KEY = "planneri-preferences-v1";
 
 const COLUMN_COLORS = [
   "#5b5bf7",
@@ -13,6 +15,7 @@ const COLUMN_COLORS = [
   "#9f1239"
 ];
 
+/* Local storage
 const defaultState = {
   columns: [
     {
@@ -42,8 +45,22 @@ const defaultState = {
     }
   ]
 };
+*/
 
-let state = loadState();
+//let state = loadState();
+let state = {
+  boardId: null,
+  columns: []
+};
+
+let preferences = loadPreferences();
+
+let realtimeChannel = null;
+let realtimeRefreshTimer = null;
+//
+
+
+
 let activeView = "board";
 let calendarDate = startOfMonth(new Date());
 
@@ -125,8 +142,21 @@ calendarNext.addEventListener("click", () => {
   renderCalendar();
 });
 
+/*
 tableSort.addEventListener("change", renderTable);
 tableGroup.addEventListener("change", renderTable);
+*/
+tableSort.addEventListener("change", () => {
+  preferences.tableSort = tableSort.value;
+  savePreferences();
+  renderTable();
+});
+
+tableGroup.addEventListener("change", () => {
+  preferences.tableGroup = tableGroup.value;
+  savePreferences();
+  renderTable();
+});
 
 taskDialogClose.addEventListener("click", closeTaskDialog);
 taskDialogCancel.addEventListener("click", closeTaskDialog);
@@ -256,6 +286,7 @@ async function signOut() {
   }
 }
 
+/*
 function showSignedIn(user) {
   authView.hidden = true;
   appView.hidden = false;
@@ -263,8 +294,104 @@ function showSignedIn(user) {
   setAuthMessage("");
   renderAll();
 }
+*/
+function showSignedIn(user) {
+  authView.hidden = true;
+  appView.hidden = false;
+
+  currentUser.textContent =
+    user.email || "Kirjautunut käyttäjä";
+
+  setAuthMessage("");
+
+  applyPreferencesToControls();
+
+  loadSharedState()
+    .then(() => {
+      startRealtime();
+    })
+    .catch((error) => {
+      console.error(
+        "Plannerin lataaminen epäonnistui:",
+        error
+      );
+
+      window.alert(
+        "Plannerin yhteisiä tietoja ei voitu ladata."
+      );
+    });
+}
+
+// lisätään
+function startRealtime() {
+  stopRealtime();
+
+  realtimeChannel = supabase
+    .channel("planneri-shared-data")
+
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "board_columns"
+      },
+      scheduleRealtimeRefresh
+    )
+
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "tasks"
+      },
+      scheduleRealtimeRefresh
+    )
+
+    .subscribe();
+}
+
+function scheduleRealtimeRefresh() {
+  window.clearTimeout(realtimeRefreshTimer);
+
+  realtimeRefreshTimer = window.setTimeout(() => {
+    loadSharedState().catch((error) => {
+      console.error(
+        "Realtime-päivitys epäonnistui:",
+        error
+      );
+    });
+  }, 150);
+}
+
+function stopRealtime() {
+  window.clearTimeout(realtimeRefreshTimer);
+
+  if (realtimeChannel) {
+    supabase.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+}
+
+/*
+function showSignedOut() {
+  appView.hidden = true;
+  authView.hidden = false;
+  currentUser.textContent = "";
+  setAuthMessage("");
+  authEmail.focus();
+}
+*/
 
 function showSignedOut() {
+  stopRealtime();
+
+  state = {
+    boardId: null,
+    columns: []
+  };
+
   appView.hidden = true;
   authView.hidden = false;
   currentUser.textContent = "";
@@ -305,6 +432,7 @@ function translateAuthError(message) {
   return `Kirjautumisessa tapahtui virhe: ${message}`;
 }
 
+/* Local storage
 function loadState() {
   const saved = localStorage.getItem(STORAGE_KEY);
 
@@ -318,6 +446,7 @@ function loadState() {
     return structuredClone(defaultState);
   }
 }
+
 
 function normalizeState(rawState) {
   if (!rawState || !Array.isArray(rawState.columns)) {
@@ -346,6 +475,163 @@ function normalizeState(rawState) {
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
+*/
+
+// Värit sekä Taulukko-näkymän valinnat voidaan pitää vain kyseisellä laitteella.
+function loadPreferences() {
+  const defaults = {
+    columnColors: {},
+    tableSort: "asc",
+    tableGroup: "column"
+  };
+
+  const saved = localStorage.getItem(PREFERENCES_KEY);
+
+  if (!saved) {
+    return defaults;
+  }
+
+  try {
+    const parsed = JSON.parse(saved);
+
+    return {
+      columnColors:
+        parsed.columnColors &&
+        typeof parsed.columnColors === "object"
+          ? parsed.columnColors
+          : {},
+
+      tableSort:
+        parsed.tableSort === "desc"
+          ? "desc"
+          : "asc",
+
+      tableGroup:
+        parsed.tableGroup === "none"
+          ? "none"
+          : "column"
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+function savePreferences() {
+  localStorage.setItem(
+    PREFERENCES_KEY,
+    JSON.stringify(preferences)
+  );
+}
+
+function applyPreferencesToControls() {
+  tableSort.value = preferences.tableSort;
+  tableGroup.value = preferences.tableGroup;
+}
+
+function getLocalColumnColor(columnId, fallbackColor, index) {
+  const savedColor = preferences.columnColors[columnId];
+
+  if (isHexColor(savedColor)) {
+    return savedColor;
+  }
+
+  if (isHexColor(fallbackColor)) {
+    return fallbackColor;
+  }
+
+  return COLUMN_COLORS[index % COLUMN_COLORS.length];
+}
+
+//Supabase JS:n nykyisessä API:ssa .select() voidaan 
+//käyttää datan lukemiseen ja sitä voidaan yhdistää 
+//esimerkiksi suodatuksiin kuten .eq() ja .in().
+
+async function loadSharedState() {
+  const { data: boards, error: boardError } = await supabase
+    .from("boards")
+    .select("id, name")
+    .order("created_at", { ascending: true })
+    .limit(1);
+
+  if (boardError) {
+    throw boardError;
+  }
+
+  if (!boards || boards.length === 0) {
+    throw new Error("Planneri-taulua ei löytynyt Supabasesta.");
+  }
+
+  const plannerBoard = boards[0];
+
+  const { data: columnRows, error: columnError } = await supabase
+    .from("board_columns")
+    .select("id, title, color, position")
+    .eq("board_id", plannerBoard.id)
+    .order("position", { ascending: true });
+
+  if (columnError) {
+    throw columnError;
+  }
+
+  const columnIds = (columnRows || []).map(
+    (column) => column.id
+  );
+
+  let taskRows = [];
+
+  if (columnIds.length > 0) {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select(
+        "id, column_id, title, description, due_date, position"
+      )
+      .in("column_id", columnIds)
+      .order("position", { ascending: true });
+
+    if (error) {
+      throw error;
+    }
+
+    taskRows = data || [];
+  }
+
+  state = {
+    boardId: plannerBoard.id,
+
+    columns: (columnRows || []).map(
+      (column, columnIndex) => ({
+        id: column.id,
+        title: column.title,
+
+        color: getLocalColumnColor(
+          column.id,
+          column.color,
+          columnIndex
+        ),
+
+        position:
+          column.position ?? columnIndex,
+
+        tasks: taskRows
+          .filter(
+            (task) => task.column_id === column.id
+          )
+          .map((task, taskIndex) => ({
+            id: task.id,
+            title: task.title,
+            description: task.description || "",
+            dueDate: task.due_date || "",
+            position:
+              task.position ?? taskIndex
+          }))
+      })
+    )
+  };
+
+  renderAll();
+}
+
+//
 
 function createId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -381,6 +667,7 @@ function switchView(viewName) {
   }
 }
 
+/*
 function renderAll() {
   renderBoard();
 
@@ -394,6 +681,19 @@ function renderAll() {
 
   saveState();
 }
+*/
+function renderAll() {
+  renderBoard();
+
+  if (activeView === "calendar") {
+    renderCalendar();
+  }
+
+  if (activeView === "table") {
+    renderTable();
+  }
+}
+//
 
 function renderBoard() {
   board.innerHTML = "";
@@ -430,9 +730,12 @@ function createColumnElement(column) {
   colorInput.title = `Valitse sarakkeen ${column.title} väri`;
   colorInput.setAttribute("aria-label", `Valitse sarakkeen ${column.title} väri`);
   colorInput.addEventListener("input", () => {
-    column.color = colorInput.value;
-    columnElement.style.setProperty("--column-color", column.color);
-    saveState();
+  column.color = colorInput.value;
+
+  preferences.columnColors[column.id] = column.color;
+  savePreferences();
+
+  columnElement.style.setProperty("--column-color", column.color);
   });
   colorInput.addEventListener("change", renderAll);
 
@@ -587,6 +890,7 @@ function createTaskElement(task, column) {
   return card;
 }
 
+/*
 function addColumn() {
   const title = window.prompt("Anna uuden sarakkeen nimi:");
 
@@ -603,7 +907,45 @@ function addColumn() {
 
   renderAll();
 }
+*/
 
+async function addColumn() {
+  const title = window.prompt("Anna uuden sarakkeen nimi:");
+
+  if (!title?.trim()) {
+    return;
+  }
+
+  if (!state.boardId) {
+    window.alert("Planneri-taulua ei ole ladattu.");
+    return;
+  }
+
+  const nextPosition =
+    state.columns.length === 0
+      ? 0
+      : Math.max(
+          ...state.columns.map((column) => column.position ?? 0)
+        ) + 1;
+
+  const { error } = await supabase
+    .from("board_columns")
+    .insert({
+      board_id: state.boardId,
+      title: title.trim(),
+      position: nextPosition
+    });
+
+  if (error) {
+    console.error("Sarakkeen lisääminen epäonnistui:", error);
+    window.alert("Sarakkeen lisääminen epäonnistui.");
+    return;
+  }
+
+  await loadSharedState();
+}
+
+/*
 function renameColumn(columnId) {
   const column = getColumn(columnId);
 
@@ -620,7 +962,50 @@ function renameColumn(columnId) {
   column.title = title.trim();
   renderAll();
 }
+*/
 
+async function renameColumn(columnId) {
+  const column = getColumn(columnId);
+
+  if (!column) {
+    return;
+  }
+
+  const title = window.prompt(
+    "Anna sarakkeelle uusi nimi:",
+    column.title
+  );
+
+  if (!title?.trim()) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("board_columns")
+    .update({
+      title: title.trim()
+    })
+    .eq("id", columnId);
+
+  if (error) {
+    console.error(
+      "Sarakkeen nimeäminen epäonnistui:",
+      error
+    );
+
+    window.alert(
+      "Sarakkeen nimeäminen epäonnistui."
+    );
+
+    return;
+  }
+
+  await loadSharedState();
+}
+
+//
+
+/*
 function deleteColumn(columnId) {
   const column = getColumn(columnId);
 
@@ -644,6 +1029,55 @@ function deleteColumn(columnId) {
   state.columns = state.columns.filter((item) => item.id !== columnId);
   renderAll();
 }
+*/
+
+async function deleteColumn(columnId) {
+  const column = getColumn(columnId);
+
+  if (!column) {
+    return;
+  }
+
+  if (column.tasks.length > 0) {
+    window.alert(
+      "Siirrä tai poista ensin sarakkeen tehtävät."
+    );
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Poistetaanko sarake "${column.title}"? Tätä toimintoa ei voi perua.`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("board_columns")
+    .delete()
+    .eq("id", columnId);
+
+  if (error) {
+    console.error(
+      "Sarakkeen poistaminen epäonnistui:",
+      error
+    );
+
+    window.alert(
+      "Sarakkeen poistaminen epäonnistui."
+    );
+
+    return;
+  }
+
+  delete preferences.columnColors[columnId];
+  savePreferences();
+
+  await loadSharedState();
+}
+
+//
 
 function fillTaskColumnOptions(selectedColumnId = "") {
   taskColumnInput.innerHTML = "";
@@ -702,6 +1136,7 @@ function closeTaskDialog() {
   }
 }
 
+/*
 function saveTaskDialog() {
   const title = taskTitleInput.value.trim();
   const selectedColumnId = taskColumnInput.value;
@@ -756,7 +1191,136 @@ function saveTaskDialog() {
   closeTaskDialog();
   renderAll();
 }
+*/
 
+async function saveTaskDialog() {
+  const title = taskTitleInput.value.trim();
+  const selectedColumnId = taskColumnInput.value;
+
+  if (!title) {
+    window.alert("Anna tehtävälle nimi.");
+    taskTitleInput.focus();
+    return;
+  }
+
+  if (!selectedColumnId) {
+    window.alert("Valitse tehtävälle sarake.");
+    return;
+  }
+
+  const taskData = {
+    title,
+    dueDate: taskDateInput.value || "",
+    description: taskDescriptionInput.value.trim()
+  };
+
+  if (dialogMode === "add") {
+    const targetColumn = getColumn(selectedColumnId);
+
+    if (!targetColumn) {
+      window.alert("Valittua saraketta ei löytynyt.");
+      return;
+    }
+
+    const nextPosition =
+      targetColumn.tasks.length === 0
+        ? 0
+        : Math.max(
+            ...targetColumn.tasks.map(
+              (task) => task.position ?? 0
+            )
+          ) + 1;
+
+    const { error } = await supabase
+      .from("tasks")
+      .insert({
+        column_id: selectedColumnId,
+        title: taskData.title,
+        description: taskData.description,
+        due_date: taskData.dueDate || null,
+        position: nextPosition
+      });
+
+    if (error) {
+      console.error(
+        "Tehtävän lisääminen epäonnistui:",
+        error
+      );
+
+      window.alert(
+        "Tehtävän lisääminen epäonnistui."
+      );
+
+      return;
+    }
+  } else {
+    const task = getTask(
+      dialogTaskId,
+      dialogColumnId
+    );
+
+    if (!task) {
+      window.alert(
+        "Muokattavaa tehtävää ei löytynyt."
+      );
+      return;
+    }
+
+    let newPosition = task.position ?? 0;
+
+    if (selectedColumnId !== dialogColumnId) {
+      const targetColumn = getColumn(
+        selectedColumnId
+      );
+
+      if (!targetColumn) {
+        window.alert(
+          "Valittua saraketta ei löytynyt."
+        );
+        return;
+      }
+
+      newPosition =
+        targetColumn.tasks.length === 0
+          ? 0
+          : Math.max(
+              ...targetColumn.tasks.map(
+                (item) => item.position ?? 0
+              )
+            ) + 1;
+    }
+
+    const { error } = await supabase
+      .from("tasks")
+      .update({
+        column_id: selectedColumnId,
+        title: taskData.title,
+        description: taskData.description,
+        due_date: taskData.dueDate || null,
+        position: newPosition
+      })
+      .eq("id", dialogTaskId);
+
+    if (error) {
+      console.error(
+        "Tehtävän muokkaaminen epäonnistui:",
+        error
+      );
+
+      window.alert(
+        "Tehtävän muokkaaminen epäonnistui."
+      );
+
+      return;
+    }
+  }
+
+  closeTaskDialog();
+  await loadSharedState();
+}
+
+//
+/*
 function deleteTask(taskId, columnId) {
   const task = getTask(taskId, columnId);
 
@@ -777,7 +1341,47 @@ function deleteTask(taskId, columnId) {
 
   renderAll();
 }
+*/
 
+async function deleteTask(taskId, columnId) {
+  const task = getTask(taskId, columnId);
+
+  if (!task) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Poistetaanko tehtävä "${task.title}"? Tätä toimintoa ei voi perua.`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("tasks")
+    .delete()
+    .eq("id", taskId);
+
+  if (error) {
+    console.error(
+      "Tehtävän poistaminen epäonnistui:",
+      error
+    );
+
+    window.alert(
+      "Tehtävän poistaminen epäonnistui."
+    );
+
+    return;
+  }
+
+  await loadSharedState();
+}
+
+//
+
+/*
 function moveTask(taskId, sourceColumnId, targetColumnId) {
   if (sourceColumnId === targetColumnId) {
     return;
@@ -801,6 +1405,73 @@ function moveTask(taskId, sourceColumnId, targetColumnId) {
 
   renderAll();
 }
+*/
+
+async function moveTask(
+  taskId,
+  sourceColumnId,
+  targetColumnId
+) {
+  if (sourceColumnId === targetColumnId) {
+    return;
+  }
+
+  const sourceColumn = getColumn(
+    sourceColumnId
+  );
+
+  const targetColumn = getColumn(
+    targetColumnId
+  );
+
+  const task = getTask(
+    taskId,
+    sourceColumnId
+  );
+
+  if (
+    !sourceColumn ||
+    !targetColumn ||
+    !task
+  ) {
+    return;
+  }
+
+  const nextPosition =
+    targetColumn.tasks.length === 0
+      ? 0
+      : Math.max(
+          ...targetColumn.tasks.map(
+            (item) => item.position ?? 0
+          )
+        ) + 1;
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({
+      column_id: targetColumnId,
+      position: nextPosition
+    })
+    .eq("id", taskId);
+
+  if (error) {
+    console.error(
+      "Tehtävän siirtäminen epäonnistui:",
+      error
+    );
+
+    window.alert(
+      "Tehtävän siirtäminen epäonnistui."
+    );
+
+    await loadSharedState();
+    return;
+  }
+
+  await loadSharedState();
+}
+
+//
 
 function getColumn(columnId) {
   return state.columns.find((column) => column.id === columnId);
@@ -1135,4 +1806,5 @@ function formatDate(isoDate) {
   }).format(new Date(year, month - 1, day));
 }
 
+applyPreferencesToControls();
 initializeAuth();
